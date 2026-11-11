@@ -1,0 +1,211 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Painel Administrativo - BebidaMix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+<body class="pagina-admin">
+
+    <!-- ==================================
+         CABEÇALHO
+    ================================== -->
+
+    <header class="admin-cabecalho">
+
+        <h1>🍻 BebidaMix Admin</h1>
+
+        <!-- SAIR DO PAINEL -->
+
+        <form
+            action="{{ url_for('admin.logout') }}"
+            method="POST"
+        >
+
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token }}"
+            >
+
+            <button
+                type="submit"
+                class="btn-sair"
+            >
+                Sair
+            </button>
+
+        </form>
+
+    </header>
+
+
+    <!-- ==================================
+         CONTEÚDO PRINCIPAL
+    ================================== -->
+
+    <main class="admin-conteudo">
+
+        <h2>Painel Administrativo</h2>
+
+        <p>Bem-vindo, {{ nome }}!</p>
+
+
+        <!-- MENSAGENS DO FLASK -->
+
+        {% with mensagens = get_flashed_messages() %}
+
+            {% for mensagem in mensagens %}
+
+                <p class="mensagem-admin">
+                    {{ mensagem }}
+                </p>
+
+            {% endfor %}
+
+        {% endwith %}
+
+
+        <!-- ==================================
+             CARTÕES ADMINISTRATIVOS
+        ================================== -->
+
+        <div class="admin-cards">
+
+
+            <!-- 1. GERENCIAR PRODUTOS -->
+
+            <div class="admin-card">
+
+                <h3>📦 Produtos</h3>
+
+                <p>
+                    Gerenciar bebidas cadastradas
+                    no MongoDB.
+                </p>
+
+                <a
+                    href="{{ url_for('admin.listar_produtos') }}"
+                    class="btn-card-admin"
+                >
+                    Gerenciar produtos
+                </a>
+
+            </div>
+
+
+            <!-- 2. CADASTRAR PRODUTO -->
+
+            <div class="admin-card">
+
+                <h3>➕ Cadastrar produto</h3>
+
+                <p>
+                    Adicionar novas bebidas
+                    ao MongoDB.
+                </p>
+
+                <a
+                    href="{{ url_for('admin.cadastrar_produto') }}"
+                    class="btn-card-admin"
+                >
+                    Cadastrar bebida
+                </a>
+
+            </div>
+
+
+            <!-- 3. CONTROLE DE ESTOQUE -->
+
+            <div class="admin-card">
+
+                <h3>📊 Estoque</h3>
+
+                <p>
+                    Consultar quantidades disponíveis
+                    e acompanhar o estoque.
+                </p>
+
+                <a
+                    href="{{ url_for('admin.controle_estoque') }}"
+                    class="btn-card-admin"
+                >
+                    Gerenciar estoque
+                </a>
+
+            </div>
+
+
+            <!-- 4. GERENCIAR PEDIDOS -->
+
+            <div class="admin-card">
+
+                <h3>🛒 Pedidos</h3>
+
+                <p>
+                    Consultar, confirmar e cancelar
+                    os pedidos realizados pelos clientes.
+                </p>
+
+                <a
+                    href="{{ url_for('admin.listar_pedidos') }}"
+                    class="btn-card-admin"
+                >
+                    Gerenciar pedidos
+                </a>
+
+            </div>
+
+
+            <!-- 5. DASHBOARD DE VENDAS -->
+
+            <div class="admin-card">
+
+                <h3>📈 Dashboard de Vendas</h3>
+
+                <p>
+                    Acompanhar o faturamento,
+                    as vendas e os produtos mais vendidos.
+                </p>
+
+                <a
+                    href="{{ url_for('admin.dashboard_vendas') }}"
+                    class="btn-card-admin"
+                >
+                    Ver dashboard
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==================================
+             VOLTAR AO CATÁLOGO
+        ================================== -->
+
+        <a
+            href="{{ url_for('inicio') }}"
+            class="voltar-loja"
+        >
+            ← Visualizar catálogo
+        </a>
+
+    </main>
+
+</body>
+</html>

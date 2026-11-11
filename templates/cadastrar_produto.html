@@ -1,0 +1,497 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Cadastrar Produto - BebidaMix Admin</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    <style>
+        .cadastro-container {
+            max-width: 700px;
+            margin: 45px auto;
+            background: white;
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+        }
+
+        .cadastro-container h2 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .cadastro-subtitulo {
+            color: #777;
+            margin-bottom: 30px;
+        }
+
+        .form-grupo {
+            margin-bottom: 20px;
+        }
+
+        .form-grupo label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .form-grupo input:not([type="checkbox"]),
+        .form-grupo textarea,
+        .form-grupo select {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #ddd;
+            border-radius: 9px;
+            font: inherit;
+            box-sizing: border-box;
+        }
+
+        .form-grupo textarea {
+            resize: vertical;
+            min-height: 85px;
+        }
+
+        .form-linha {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .campo-ajuda {
+            display: block;
+            margin-top: 8px;
+            color: #777;
+            font-size: 13px;
+        }
+
+        /* Campo de upload */
+
+        .upload-imagem {
+            border: 2px dashed #d7c8e3;
+            border-radius: 12px;
+            padding: 18px;
+            background: #faf7fc;
+        }
+
+        .upload-imagem input[type="file"] {
+            background: white;
+            cursor: pointer;
+        }
+
+        /* Pré-visualização */
+
+        .imagem-preview-container {
+            margin-top: 15px;
+        }
+
+        .imagem-preview-container p {
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .imagem-preview {
+            display: none;
+            width: 150px;
+            height: 150px;
+            padding: 10px;
+            object-fit: contain;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            box-sizing: border-box;
+        }
+
+        /* Checkbox */
+
+        .checkbox-produto {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 25px 0;
+        }
+
+        .checkbox-produto input {
+            width: 19px;
+            height: 19px;
+            accent-color: #641b92;
+        }
+
+        .checkbox-produto label {
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Botão */
+
+        .btn-cadastrar {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            background: #641b92;
+            color: white;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-cadastrar:hover {
+            background: #4b146e;
+        }
+
+        /* Mensagens */
+
+        .mensagem-admin {
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            background: #fff2e8;
+            border-radius: 9px;
+        }
+
+        @media (max-width: 600px) {
+            .cadastro-container {
+                margin: 20px 12px;
+                padding: 22px;
+            }
+
+            .form-linha {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- CABEÇALHO -->
+
+    <header>
+
+        <h1>🍻 BebidaMix Admin</h1>
+
+        <a
+            href="{{ url_for('admin.painel') }}"
+            style="color: #641b92; text-decoration: none; font-weight: bold;"
+        >
+            Voltar ao painel
+        </a>
+
+    </header>
+
+
+    <!-- CADASTRAR PRODUTO -->
+
+    <main class="cadastro-container">
+
+        <h2>Cadastrar Produto</h2>
+
+        <p class="cadastro-subtitulo">
+            Adicione uma nova bebida ao catálogo do BebidaMix.
+        </p>
+
+
+        <!-- Mensagens do Flask -->
+
+        {% with mensagens = get_flashed_messages() %}
+
+            {% if mensagens %}
+
+                {% for mensagem in mensagens %}
+
+                    <div class="mensagem-admin">
+                        {{ mensagem }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+
+        <!-- FORMULÁRIO -->
+
+        <form
+            method="POST"
+            action="{{ url_for('admin.cadastrar_produto') }}"
+            enctype="multipart/form-data"
+        >
+
+            <!-- PROTEÇÃO CSRF -->
+
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token }}"
+            >
+
+
+            <!-- NOME -->
+
+            <div class="form-grupo">
+
+                <label for="nome">
+                    Nome do produto *
+                </label>
+
+                <input
+                    type="text"
+                    id="nome"
+                    name="nome"
+                    placeholder="Ex: Cerveja Brahma"
+                    maxlength="120"
+                    required
+                >
+
+            </div>
+
+
+            <!-- DESCRIÇÃO -->
+
+            <div class="form-grupo">
+
+                <label for="descricao">
+                    Descrição
+                </label>
+
+                <textarea
+                    id="descricao"
+                    name="descricao"
+                    maxlength="500"
+                    placeholder="Ex: Garrafa 600 ml"
+                ></textarea>
+
+            </div>
+
+
+            <!-- CATEGORIA -->
+
+            <div class="form-grupo">
+
+                <label for="categoria">
+                    Categoria *
+                </label>
+
+                <select
+                    id="categoria"
+                    name="categoria"
+                    required
+                >
+
+                    {% for categoria in categorias %}
+
+                        <option value="{{ categoria }}">
+                            {{ categoria }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+
+            <!-- PREÇO E ESTOQUE -->
+
+            <div class="form-linha">
+
+                <div class="form-grupo">
+
+                    <label for="preco">
+                        Preço (R$) *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="preco"
+                        name="preco"
+                        min="0.01"
+                        max="100000"
+                        step="0.01"
+                        placeholder="Ex: 10.00"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="form-grupo">
+
+                    <label for="estoque">
+                        Estoque *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="estoque"
+                        name="estoque"
+                        min="0"
+                        max="1000000"
+                        step="1"
+                        placeholder="Ex: 20"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+
+            <!-- UPLOAD DA IMAGEM -->
+
+            <div class="form-grupo">
+
+                <label for="imagem">
+                    Imagem do produto
+                </label>
+
+                <div class="upload-imagem">
+
+                    <input
+                        type="file"
+                        id="imagem"
+                        name="imagem"
+                        accept="image/jpeg,image/png,image/webp"
+                    >
+
+                    <small class="campo-ajuda">
+                        Escolha uma imagem JPG, PNG ou WebP
+                        do computador ou celular.
+                        Tamanho máximo: 5 MB.
+                    </small>
+
+                </div>
+
+
+                <!-- PRÉ-VISUALIZAÇÃO -->
+
+                <div class="imagem-preview-container">
+
+                    <p>Pré-visualização:</p>
+
+                    <img
+                        id="preview-imagem"
+                        class="imagem-preview"
+                        alt="Imagem selecionada"
+                    >
+
+                    <small
+                        id="sem-imagem"
+                        class="campo-ajuda"
+                    >
+                        Nenhuma imagem selecionada.
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <!-- PRODUTO ATIVO -->
+
+            <div class="checkbox-produto">
+
+                <input
+                    type="checkbox"
+                    id="ativo"
+                    name="ativo"
+                    checked
+                >
+
+                <label for="ativo">
+                    Produto ativo no catálogo
+                </label>
+
+            </div>
+
+
+            <!-- SALVAR -->
+
+            <button
+                type="submit"
+                class="btn-cadastrar"
+            >
+                Cadastrar Produto
+            </button>
+
+        </form>
+
+    </main>
+
+
+    <!-- PRÉ-VISUALIZAÇÃO DA IMAGEM -->
+
+    <script>
+
+        const inputImagem = document.getElementById("imagem");
+
+        const previewImagem = document.getElementById("preview-imagem");
+
+        const semImagem = document.getElementById("sem-imagem");
+
+        inputImagem.addEventListener("change", function () {
+
+            const arquivo = this.files[0];
+
+            if (!arquivo) {
+                previewImagem.removeAttribute("src");
+                previewImagem.style.display = "none";
+                semImagem.style.display = "block";
+                return;
+            }
+
+            const formatos = [
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+            ];
+
+            if (!formatos.includes(arquivo.type)) {
+
+                alert("Escolha uma imagem JPG, PNG ou WebP.");
+
+                this.value = "";
+
+                return;
+            }
+
+            if (arquivo.size > 5 * 1024 * 1024) {
+
+                alert("A imagem deve ter no máximo 5 MB.");
+
+                this.value = "";
+
+                return;
+            }
+
+            const urlTemporaria = URL.createObjectURL(arquivo);
+
+            previewImagem.src = urlTemporaria;
+
+            previewImagem.style.display = "block";
+
+            semImagem.style.display = "none";
+
+            previewImagem.onload = function () {
+                URL.revokeObjectURL(urlTemporaria);
+            };
+
+        });
+
+    </script>
+
+</body>
+</html>

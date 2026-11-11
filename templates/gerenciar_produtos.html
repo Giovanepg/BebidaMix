@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Gerenciar Produtos - BebidaMix</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="pagina-admin">
+
+    <header class="admin-cabecalho">
+
+        <h1>🍻 BebidaMix Admin</h1>
+
+        <a href="{{ url_for('admin.painel') }}"
+           class="link-voltar-admin">
+            Voltar ao painel
+        </a>
+
+    </header>
+
+    <main class="admin-conteudo">
+
+        <div class="gerenciar-topo">
+            <div>
+                <h2>Gerenciar Produtos</h2>
+                <p>
+                    Consulte e edite as bebidas cadastradas.
+                </p>
+            </div>
+
+            <a href="{{ url_for('admin.cadastrar_produto') }}"
+               class="btn-card-admin">
+                + Nova bebida
+            </a>
+        </div>
+
+        <!-- Mensagens -->
+        {% with mensagens = get_flashed_messages() %}
+            {% for mensagem in mensagens %}
+                <p class="mensagem-admin">
+                    {{ mensagem }}
+                </p>
+            {% endfor %}
+        {% endwith %}
+
+        <!-- Tabela -->
+        <div class="tabela-container">
+
+            <table class="tabela-produtos">
+
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Categoria</th>
+                        <th>Preço</th>
+                        <th>Estoque</th>
+                        <th>Situação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for produto in produtos %}
+
+                    <tr>
+
+                        <td>
+                            <strong>{{ produto.nome }}</strong>
+                            <small>
+                                {{ produto.descricao }}
+                            </small>
+                        </td>
+
+                        <td>{{ produto.categoria }}</td>
+
+                        <td>
+                            R$ {{ "%.2f"|format(produto.preco) }}
+                        </td>
+
+                        <td>
+                            {{ produto.estoque }}
+                        </td>
+
+                        <td>
+                            {% if produto.ativo %}
+
+                                <span class="status-ativo">
+                                    Ativo
+                                </span>
+
+                            {% else %}
+
+                                <span class="status-inativo">
+                                    Inativo
+                                </span>
+
+                            {% endif %}
+                        </td>
+
+
+                        <td>
+                            <div class="acoes-produto">
+
+                            <!-- EDITAR -->
+                            <a
+                                class="btn-editar"
+                                href="{{ url_for('admin.editar_produto', id_produto=produto.id) }}"
+                            >
+                                Editar
+                            </a>
+
+                            <!-- EXCLUIR -->
+                            <form
+                                method="POST"
+                                action="{{ url_for('admin.excluir_produto', id_produto=produto.id) }}"
+                                onsubmit="return confirm('Tem certeza de que deseja excluir este produto? Essa ação não poderá ser desfeita.');"
+                            >
+
+                            <input
+                                type="hidden"
+                                name="csrf_token"
+                                value="{{ csrf_token }}"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn-excluir"
+                            >
+                                Excluir
+                            </button>
+
+                            </form>
+
+                            </div>
+                        </td>
+
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="6">
+                            Nenhum produto cadastrado.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </main>
+
+</body>
+</html>

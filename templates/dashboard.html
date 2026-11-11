@@ -1,0 +1,268 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Dashboard de Vendas - BebidaMix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+</head>
+
+<body>
+
+    <!-- CABEÇALHO -->
+
+    <header>
+
+        <h1>🍻 BebidaMix Admin</h1>
+
+        <a
+            href="{{ url_for('admin.painel') }}"
+            class="dashboard-voltar"
+        >
+            Voltar ao painel
+        </a>
+
+    </header>
+
+
+    <!-- CONTEÚDO -->
+
+    <main class="dashboard-container">
+
+        <div class="dashboard-cabecalho">
+
+            <div>
+                <h2>📊 Dashboard de Vendas</h2>
+
+                <p>
+                    Acompanhe os resultados do BebidaMix.
+                </p>
+            </div>
+
+            <a
+                href="{{ url_for('admin.listar_pedidos') }}"
+                class="dashboard-botao"
+            >
+                Ver pedidos
+            </a>
+
+        </div>
+
+
+        <!-- INDICADORES -->
+
+        <section class="dashboard-indicadores">
+
+            <div class="dashboard-indicador">
+
+                <p>💰 Faturamento confirmado</p>
+
+                <h3>{{ faturamento }}</h3>
+
+            </div>
+
+
+            <div class="dashboard-indicador">
+
+                <p>✅ Vendas confirmadas</p>
+
+                <h3>{{ vendas_confirmadas }}</h3>
+
+            </div>
+
+
+            <div class="dashboard-indicador">
+
+                <p>🕒 Pedidos pendentes</p>
+
+                <h3 class="dashboard-laranja">
+                    {{ pedidos_pendentes }}
+                </h3>
+
+            </div>
+
+
+            <div class="dashboard-indicador">
+
+                <p>❌ Pedidos cancelados</p>
+
+                <h3 class="dashboard-vermelho">
+                    {{ pedidos_cancelados }}
+                </h3>
+
+            </div>
+
+        </section>
+
+
+        <!-- PRODUTOS MAIS VENDIDOS -->
+
+        <section class="dashboard-secao">
+
+            <h3>🏆 Bebidas mais vendidas</h3>
+
+            <p class="dashboard-descricao">
+                Quantidades vendidas em pedidos confirmados.
+            </p>
+
+            {% if mais_vendidos %}
+
+                <div class="dashboard-tabela-scroll">
+
+                    <table class="dashboard-tabela">
+
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Unidades vendidas</th>
+                                <th>Faturamento</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            {% for produto in mais_vendidos %}
+
+                                <tr>
+
+                                    <td>
+                                        <strong>
+                                            {{ produto.nome }}
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        {{ produto.quantidade }}
+                                    </td>
+
+                                    <td>
+                                        R$
+                                        {{ "%.2f"|format(produto.faturamento)|replace(".", ",") }}
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <p class="dashboard-vazio">
+                    Ainda não existem vendas confirmadas.
+                </p>
+
+            {% endif %}
+
+        </section>
+
+
+        <!-- ÚLTIMOS PEDIDOS -->
+
+        <section class="dashboard-secao">
+
+            <h3>🛒 Últimos pedidos</h3>
+
+            <p class="dashboard-descricao">
+                Os cinco pedidos mais recentes do sistema.
+            </p>
+
+            {% if ultimos_pedidos %}
+
+                <div class="dashboard-tabela-scroll">
+
+                    <table class="dashboard-tabela">
+
+                        <thead>
+                            <tr>
+                                <th>Pedido</th>
+                                <th>Data</th>
+                                <th>Total</th>
+                                <th>Situação</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            {% for pedido in ultimos_pedidos %}
+
+                                <tr>
+
+                                    <td>
+                                        <strong>
+                                            #{{ pedido.id[-8:] }}
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        {{ pedido.data_formatada }}
+                                    </td>
+
+                                    <td>
+                                        R$
+                                        {{ "%.2f"|format(pedido.total)|replace(".", ",") }}
+                                    </td>
+
+                                    <td>
+
+                                        {% if pedido.status == "CONFIRMADO" %}
+
+                                            <span class="dashboard-status status-confirmado">
+                                                Confirmado
+                                            </span>
+
+                                        {% elif pedido.status == "CANCELADO" %}
+
+                                            <span class="dashboard-status status-cancelado">
+                                                Cancelado
+                                            </span>
+
+                                        {% else %}
+
+                                            <span class="dashboard-status status-pendente">
+                                                Pendente
+                                            </span>
+
+                                        {% endif %}
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <p class="dashboard-vazio">
+                    Nenhum pedido foi registrado ainda.
+                </p>
+
+            {% endif %}
+
+        </section>
+
+    </main>
+
+</body>
+</html>

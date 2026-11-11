@@ -1,0 +1,485 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>BebidaMix - Cardápio Online</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+</head>
+
+<body>
+
+    <!-- ==================================
+         CABEÇALHO DO BEBIDAMIX
+    ================================== -->
+
+    <header class="cabecalho-catalogo">
+
+        <!-- LOGO -->
+        <h1>🍻 BebidaMix</h1>
+
+        <!-- BARRA DE PESQUISA -->
+        <input
+            type="text"
+            id="busca"
+            placeholder="Buscar bebidas..."
+            aria-label="Buscar bebidas"
+        >
+
+        <!-- ÁREA DO USUÁRIO -->
+        <div class="usuario-catalogo">
+
+            {% if usuario_logado %}
+
+                <!-- CLIENTE AUTENTICADO -->
+                <span
+                    class="nome-usuario"
+                    title="{{ nome_cliente }}"
+                >
+                    👤 Olá, {{ nome_cliente }}!
+                </span>
+
+                <!-- ACESSO ADMINISTRATIVO -->
+                <a
+                    href="{{ url_for('admin.painel') }}"
+                    class="link-admin-catalogo"
+                    title="Acesso administrativo restrito"
+                >
+                    🔐 Área administrativa
+                </a>
+
+                <!-- SAIR DA CONTA -->
+                <form
+                    action="{{ url_for('cliente.sair') }}"
+                    method="POST"
+                    class="form-sair-cliente"
+                >
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token }}"
+                    >
+
+                    <button
+                        type="submit"
+                        class="btn-sair-cliente"
+                    >
+                        Sair
+                    </button>
+
+                </form>
+
+            {% else %}
+
+                <!-- VISITANTE SEM LOGIN -->
+                <a
+                    href="{{ url_for('cliente.entrar') }}"
+                    class="btn-entrar-catalogo"
+                >
+                    Entrar
+                </a>
+
+                <a
+                    href="{{ url_for('cliente.cadastro') }}"
+                    class="btn-cadastro-catalogo"
+                >
+                    Criar conta
+                </a>
+
+                <!-- LINK ADMINISTRATIVO -->
+                <a
+                    href="{{ url_for('admin.login') }}"
+                    class="link-admin-catalogo"
+                    title="Acesso administrativo restrito"
+                >
+                    🔐 Área administrativa
+                </a>
+
+            {% endif %}
+
+            <!-- CARRINHO DISPONÍVEL PARA TODOS -->
+            <button
+                class="carrinho-topo"
+                id="abrir-carrinho"
+                type="button"
+                aria-label="Abrir carrinho"
+            >
+                🛒
+                <span id="contador-carrinho">0</span>
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- ==================================
+         CATEGORIAS
+    ================================== -->
+
+    <nav class="categorias">
+
+        <button type="button" data-filtro="Todas">
+            Todas
+        </button>
+
+        <button type="button" data-filtro="Cervejas">
+            Cervejas
+        </button>
+
+        <button type="button" data-filtro="Refrigerantes">
+            Refrigerantes
+        </button>
+
+        <button type="button" data-filtro="Energéticos">
+            Energéticos
+        </button>
+
+        <button type="button" data-filtro="Águas">
+            Águas
+        </button>
+
+        <button type="button" data-filtro="Combos">
+            Combos
+        </button>
+
+    </nav>
+
+
+    <!-- ==================================
+         BANNER PRINCIPAL
+    ================================== -->
+
+    <section class="banner">
+
+        <h2>
+            Bebidas e promoções para você!
+        </h2>
+
+        <p>
+            Escolha suas bebidas favoritas
+            e faça seu pedido.
+        </p>
+
+    </section>
+
+
+    <!-- ==================================
+         CATÁLOGO DE PRODUTOS
+    ================================== -->
+
+    <main>
+
+        <h2>🔥 Nossas Bebidas</h2>
+
+        <div class="produtos">
+
+            {% for produto in produtos %}
+
+                <!-- CARD DO PRODUTO -->
+                <div
+                    class="card"
+                    data-id="{{ produto.id }}"
+                    data-nome="{{ produto.nome }}"
+                    data-categoria="{{ produto.categoria }}"
+                    data-preco="{{ produto.preco }}"
+                    data-estoque="{{ produto.estoque }}"
+                >
+
+                    <!-- IMAGEM -->
+                    <div class="imagem-produto">
+
+                        {% if produto.imagem %}
+
+                            <img
+                                src="{{ produto.imagem }}"
+                                alt="{{ produto.nome }}"
+                                loading="lazy"
+                                onerror="this.hidden=true; this.nextElementSibling.hidden=false;"
+                            >
+
+                            <span hidden>🥤</span>
+
+                        {% else %}
+
+                            <span>🥤</span>
+
+                        {% endif %}
+
+                    </div>
+
+                    <!-- NOME -->
+                    <h3>{{ produto.nome }}</h3>
+
+                    <!-- DESCRIÇÃO -->
+                    <p class="descricao">
+                        {{ produto.descricao }}
+                    </p>
+
+                    <!-- PREÇO -->
+                    <h2 class="preco">
+                        R$ {{ "%.2f"|format(produto.preco)|replace(".", ",") }}
+                    </h2>
+
+                    <!-- VER DETALHES -->
+                    <a
+                        class="btn-detalhes"
+                        href="{{ url_for('detalhes_produto', id_produto=produto.id) }}"
+                    >
+                        Ver detalhes
+                    </a>
+
+                    <!-- QUANTIDADE -->
+                    <div class="quantidade">
+
+                        <button
+                            class="btn-menos"
+                            type="button"
+                            aria-label="Diminuir quantidade"
+                        >
+                            −
+                        </button>
+
+                        <span class="qtd">
+
+                            {% if produto.estoque > 0 %}
+                                1
+                            {% else %}
+                                0
+                            {% endif %}
+
+                        </span>
+
+                        <button
+                            class="btn-mais"
+                            type="button"
+                            aria-label="Aumentar quantidade"
+                        >
+                            +
+                        </button>
+
+                    </div>
+
+                    <!-- ADICIONAR AO CARRINHO -->
+                    <button
+                        class="adicionar"
+                        type="button"
+                        {% if produto.estoque <= 0 %}
+                            disabled
+                        {% endif %}
+                    >
+
+                        {% if produto.estoque > 0 %}
+                            Adicionar
+                        {% else %}
+                            Esgotado
+                        {% endif %}
+
+                    </button>
+
+                </div>
+
+            {% else %}
+
+                <p>
+                    Nenhum produto disponível no momento.
+                </p>
+
+            {% endfor %}
+
+        </div>
+
+
+        <!-- ==================================
+             VISUALIZADOS RECENTEMENTE
+        ================================== -->
+
+        {% if recentes %}
+
+            <section class="secao-recentes">
+
+                <h2>🕒 Visualizados recentemente</h2>
+
+                <p class="recentes-subtitulo">
+                    Confira as últimas bebidas que você visualizou.
+                </p>
+
+                <div class="lista-recentes">
+
+                    {% for produto in recentes %}
+
+                        <div class="card-recente">
+
+                            <!-- IMAGEM -->
+                            <div class="imagem-recente">
+
+                                {% if produto.imagem %}
+
+                                    <img
+                                        src="{{ produto.imagem }}"
+                                        alt="{{ produto.nome }}"
+                                        loading="lazy"
+                                        onerror="this.hidden=true; this.nextElementSibling.hidden=false;"
+                                    >
+
+                                    <span hidden>🥤</span>
+
+                                {% else %}
+
+                                    <span>🥤</span>
+
+                                {% endif %}
+
+                            </div>
+
+                            <!-- NOME -->
+                            <h3>{{ produto.nome }}</h3>
+
+                            <!-- DESCRIÇÃO -->
+                            <p class="descricao-recente">
+                                {{ produto.descricao }}
+                            </p>
+
+                            <!-- PREÇO -->
+                            <p class="preco-recente">
+                                R$ {{ "%.2f"|format(produto.preco)|replace(".", ",") }}
+                            </p>
+
+                            <!-- ABRIR DETALHES -->
+                            <a
+                                class="btn-detalhes-recente"
+                                href="{{ url_for('detalhes_produto', id_produto=produto.id) }}"
+                            >
+                                Ver novamente
+                            </a>
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            </section>
+
+        {% endif %}
+
+    </main>
+
+
+    <!-- ==================================
+         FUNDO ESCURO DO CARRINHO
+    ================================== -->
+
+    <div
+        id="fundo-carrinho"
+        class="fundo-carrinho"
+    ></div>
+
+
+    <!-- ==================================
+         PAINEL LATERAL DO CARRINHO
+    ================================== -->
+
+    <aside
+        id="painel-carrinho"
+        class="painel-carrinho"
+        aria-label="Meu carrinho"
+    >
+
+        <!-- CABEÇALHO DO CARRINHO -->
+        <div class="carrinho-cabecalho">
+
+            <h2>🛒 Meu Carrinho</h2>
+
+            <button
+                id="fechar-carrinho"
+                type="button"
+                aria-label="Fechar carrinho"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <!-- LISTA DE PRODUTOS -->
+        <div
+            id="itens-carrinho"
+            class="itens-carrinho"
+        >
+            <p class="carrinho-vazio">
+                Seu carrinho está vazio.
+            </p>
+        </div>
+
+        <!-- RODAPÉ DO CARRINHO -->
+        <div class="carrinho-rodape">
+
+            <!-- TOTAL -->
+            <div class="carrinho-total">
+
+                <span>Total do pedido:</span>
+
+                <strong id="total-carrinho">
+                    R$ 0,00
+                </strong>
+
+            </div>
+
+            <!-- FINALIZAR PEDIDO -->
+            <button
+                id="finalizar-pedido"
+                class="btn-finalizar"
+                type="button"
+                disabled
+            >
+                Finalizar pedido
+            </button>
+
+            <!-- CONTINUAR COMPRANDO -->
+            <button
+                id="continuar-comprando"
+                class="btn-continuar"
+                type="button"
+            >
+                Continuar comprando
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <!-- ==================================
+         NOTIFICAÇÕES
+    ================================== -->
+
+    <div
+        id="notificacao"
+        class="notificacao"
+        role="status"
+        aria-live="polite"
+    ></div>
+
+
+    <!-- ==================================
+         JAVASCRIPT
+    ================================== -->
+
+    <script
+        src="{{ url_for('static', filename='js/script.js') }}"
+    ></script>
+
+</body>
+</html>

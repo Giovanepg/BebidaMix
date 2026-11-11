@@ -1,0 +1,292 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Gerenciar Pedidos - BebidaMix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+<body>
+
+    <!-- ==========================
+         CABEÇALHO
+    =========================== -->
+
+    <header>
+
+        <h1>🍻 BebidaMix Admin</h1>
+
+        <a
+            href="{{ url_for('admin.painel') }}"
+            class="voltar-pedidos"
+        >
+            Voltar ao painel
+        </a>
+
+    </header>
+
+
+    <!-- ==========================
+         CONTEÚDO
+    =========================== -->
+
+    <main class="pedidos-container">
+
+        <div class="pedidos-cabecalho">
+
+            <div>
+
+                <h2>🛒 Gerenciar Pedidos</h2>
+
+                <p>
+                    Consulte, confirme ou cancele
+                    os pedidos registrados no BebidaMix.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- MENSAGENS DO FLASK -->
+
+        {% with mensagens = get_flashed_messages() %}
+
+            {% if mensagens %}
+
+                {% for mensagem in mensagens %}
+
+                    <div class="mensagem-pedidos">
+                        {{ mensagem }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+
+        <!-- ==========================
+             LISTA DE PEDIDOS
+        =========================== -->
+
+        {% for pedido in pedidos %}
+
+            <div class="pedido-card">
+
+                <!-- CABEÇALHO DO PEDIDO -->
+
+                <div class="pedido-topo">
+
+                    <div>
+
+                        <h3>
+                            Pedido #{{ pedido.id[-8:] }}
+                        </h3>
+
+                        <p class="pedido-data">
+                            {{ pedido.data_formatada }}
+                        </p>
+
+                    </div>
+
+
+                    <!-- SITUAÇÃO DO PEDIDO -->
+
+                    <span
+                        class="pedido-status
+                        {% if pedido.status == 'CONFIRMADO' %}
+                            pedido-confirmado
+                        {% elif pedido.status == 'CANCELADO' %}
+                            pedido-cancelado
+                        {% endif %}"
+                    >
+
+                        {% if pedido.status == "AGUARDANDO_CONFIRMACAO" %}
+
+                            Aguardando confirmação
+
+                        {% elif pedido.status == "CONFIRMADO" %}
+
+                            Confirmado
+
+                        {% elif pedido.status == "CANCELADO" %}
+
+                            Cancelado
+
+                        {% else %}
+
+                            {{ pedido.status }}
+
+                        {% endif %}
+
+                    </span>
+
+                </div>
+
+
+                <!-- IDENTIFICADOR -->
+
+                <p class="pedido-identificador">
+                    ID: {{ pedido.id }}
+                </p>
+
+
+                <!-- ==========================
+                     ITENS DO PEDIDO
+                =========================== -->
+
+                <div class="pedido-itens">
+
+                    {% for item in pedido.itens %}
+
+                        <div class="pedido-item">
+
+                            <span>
+                                {{ item.quantidade }}x
+                                {{ item.nome }}
+                            </span>
+
+                            <strong>
+                                R$
+                                {{ "%.2f"|format(item.subtotal)|replace(".", ",") }}
+                            </strong>
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+
+                <!-- ==========================
+                     TOTAL DO PEDIDO
+                =========================== -->
+
+                <div class="pedido-rodape">
+
+                    <span>
+                        Total do pedido:
+                    </span>
+
+                    <strong>
+                        R$
+                        {{ "%.2f"|format(pedido.total)|replace(".", ",") }}
+                    </strong>
+
+                </div>
+
+
+                <!-- ==========================
+                     CONFIRMAR OU CANCELAR
+                =========================== -->
+
+                {% if pedido.status == "AGUARDANDO_CONFIRMACAO" %}
+
+                    <div class="pedido-acoes">
+
+                        <!-- CANCELAR PEDIDO -->
+
+                        <form
+                            method="POST"
+                            action="{{ url_for('admin.cancelar_pedido', id_pedido=pedido.id) }}"
+                            onsubmit="return confirm('Tem certeza de que deseja cancelar este pedido?');"
+                        >
+
+                            <input
+                                type="hidden"
+                                name="csrf_token"
+                                value="{{ csrf_token }}"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn-cancelar-pedido"
+                            >
+                                ❌ Cancelar pedido
+                            </button>
+
+                        </form>
+
+
+                        <!-- CONFIRMAR PEDIDO -->
+
+                        <form
+                            method="POST"
+                            action="{{ url_for('admin.confirmar_pedido', id_pedido=pedido.id) }}"
+                            onsubmit="return confirm('Deseja confirmar esta venda e descontar os produtos do estoque?');"
+                        >
+
+                            <input
+                                type="hidden"
+                                name="csrf_token"
+                                value="{{ csrf_token }}"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn-confirmar-pedido"
+                            >
+                                ✅ Confirmar venda
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                {% endif %}
+
+
+                <!-- MENSAGEM PARA PEDIDO CONFIRMADO -->
+
+                {% if pedido.status == "CONFIRMADO" %}
+
+                    <p class="pedido-mensagem-confirmado">
+                        ✅ Venda confirmada e estoque atualizado.
+                    </p>
+
+                {% endif %}
+
+
+                <!-- MENSAGEM PARA PEDIDO CANCELADO -->
+
+                {% if pedido.status == "CANCELADO" %}
+
+                    <p class="pedido-mensagem-cancelado">
+                        ❌ Este pedido foi cancelado.
+                    </p>
+
+                {% endif %}
+
+            </div>
+
+        {% else %}
+
+            <!-- NENHUM PEDIDO -->
+
+            <div class="pedido-card">
+
+                <p>
+                    Nenhum pedido registrado até o momento.
+                </p>
+
+            </div>
+
+        {% endfor %}
+
+    </main>
+
+</body>
+</html>

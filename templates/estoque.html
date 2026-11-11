@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Controle de Estoque - BebidaMix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+<body>
+
+    <!-- CABEÇALHO -->
+
+    <header>
+        <h1>🍻 BebidaMix Admin</h1>
+
+        <a
+            class="link-voltar-estoque"
+            href="{{ url_for('admin.painel') }}"
+        >
+            Voltar ao painel
+        </a>
+    </header>
+
+
+    <main class="estoque-container">
+
+        <div class="estoque-titulo">
+
+            <div>
+                <h2>📦 Controle de Estoque</h2>
+
+                <p>
+                    Acompanhe a disponibilidade
+                    das bebidas cadastradas.
+                </p>
+            </div>
+
+            <a
+                class="estoque-novo"
+                href="{{ url_for('admin.cadastrar_produto') }}"
+            >
+                + Nova bebida
+            </a>
+
+        </div>
+
+
+        <!-- INDICADORES -->
+
+        <section class="estoque-indicadores">
+
+            <div class="indicador-estoque">
+                <p>Produtos cadastrados</p>
+                <h3>{{ total_produtos }}</h3>
+            </div>
+
+            <div class="indicador-estoque">
+                <p>Unidades de produtos ativos</p>
+                <h3>{{ total_unidades }}</h3>
+            </div>
+
+            <div class="indicador-estoque indicador-alerta">
+                <p>Estoque baixo</p>
+                <h3>{{ estoque_baixo }}</h3>
+            </div>
+
+            <div class="indicador-estoque indicador-esgotado">
+                <p>Produtos esgotados</p>
+                <h3>{{ esgotados }}</h3>
+            </div>
+
+        </section>
+
+        <p class="estoque-legenda">
+            Estoque baixo: de 1 a 5 unidades.
+            Produtos inativos: {{ inativos }}.
+        </p>
+
+
+        <!-- TABELA -->
+
+        <section class="estoque-tabela-container">
+
+            <h3>Produtos em estoque</h3>
+
+            <div class="estoque-tabela-scroll">
+
+                <table class="estoque-tabela">
+
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Categoria</th>
+                            <th>Quantidade</th>
+                            <th>Situação</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for produto in produtos %}
+
+                        <tr>
+
+                            <td>
+                                <strong>{{ produto.nome }}</strong>
+
+                                <small>
+                                    {{ produto.descricao }}
+                                </small>
+                            </td>
+
+                            <td>
+                                {{ produto.categoria }}
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ produto.estoque }}
+                                </strong>
+                            </td>
+
+                            <td>
+
+                                {% if produto.situacao_estoque == "Normal" %}
+
+                                    <span class="estoque-status status-normal">
+                                        Normal
+                                    </span>
+
+                                {% elif produto.situacao_estoque == "Estoque baixo" %}
+
+                                    <span class="estoque-status status-baixo">
+                                        Estoque baixo
+                                    </span>
+
+                                {% elif produto.situacao_estoque == "Esgotado" %}
+
+                                    <span class="estoque-status status-esgotado">
+                                        Esgotado
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="estoque-status status-inativo-estoque">
+                                        Inativo
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+
+                                <a
+                                    class="estoque-editar"
+                                    href="{{ url_for('admin.editar_produto', id_produto=produto.id) }}"
+                                >
+                                    Atualizar
+                                </a>
+
+                            </td>
+
+                        </tr>
+
+                        {% else %}
+
+                        <tr>
+                            <td colspan="5">
+                                Nenhum produto cadastrado.
+                            </td>
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</body>
+</html>

@@ -1,0 +1,155 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>{{ produto.nome }} - BebidaMix</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+<body>
+
+    <!-- CABEÇALHO -->
+    <header class="cabecalho-detalhes">
+
+        <h1>🍻 BebidaMix</h1>
+
+        <a href="{{ url_for('inicio') }}">
+            Voltar ao catálogo
+        </a>
+
+    </header>
+
+
+    <!-- DETALHES DO PRODUTO -->
+    <main class="pagina-detalhes">
+
+        <div
+            class="produto-detalhes"
+            id="produto-detalhes"
+            data-id="{{ produto.id }}"
+            data-nome="{{ produto.nome }}"
+            data-preco="{{ produto.preco }}"
+            data-estoque="{{ produto.estoque }}"
+        >
+
+            <!-- IMAGEM -->
+            <div class="produto-detalhes-imagem">
+
+
+                {% if produto.imagem %}
+
+                <img
+                    src="{{ produto.imagem }}"
+                    alt="{{ produto.nome }}"
+                    onerror="this.hidden=true; this.nextElementSibling.hidden=false;"
+                >
+
+                <span hidden>🥤</span>
+
+                {% else %}
+
+                <span>🥤</span>
+
+                {% endif %}
+
+
+            </div>
+
+
+            <!-- INFORMAÇÕES -->
+            <div class="produto-detalhes-info">
+
+                <p class="detalhes-categoria">
+                    {{ produto.categoria }}
+                </p>
+
+                <h2>{{ produto.nome }}</h2>
+
+                <p class="detalhes-descricao">
+                    {{ produto.descricao }}
+                </p>
+
+                <h3 class="detalhes-preco">
+                    R$ {{ "%.2f"|format(produto.preco)|replace(".", ",") }}
+                </h3>
+
+                <p class="detalhes-estoque">
+                    {% if produto.estoque > 0 %}
+                        ✅ {{ produto.estoque }} unidades disponíveis
+                    {% else %}
+                        ❌ Produto esgotado
+                    {% endif %}
+                </p>
+
+
+                <!-- QUANTIDADE -->
+                <div class="detalhes-quantidade">
+
+                    <button
+                        id="detalhes-menos"
+                        type="button"
+                        {% if produto.estoque <= 0 %}disabled{% endif %}
+                    >
+                        −
+                    </button>
+
+                    <span id="detalhes-qtd">
+                        {% if produto.estoque > 0 %}1{% else %}0{% endif %}
+                    </span>
+
+                    <button
+                        id="detalhes-mais"
+                        type="button"
+                        {% if produto.estoque <= 0 %}disabled{% endif %}
+                    >
+                        +
+                    </button>
+
+                </div>
+
+
+                <!-- ADICIONAR AO CARRINHO -->
+                <button
+                    class="btn-adicionar-detalhes"
+                    id="adicionar-detalhes"
+                    type="button"
+                    {% if produto.estoque <= 0 %}disabled{% endif %}
+                >
+                    🛒
+                    {% if produto.estoque > 0 %}
+                        Adicionar ao carrinho
+                    {% else %}
+                        Produto esgotado
+                    {% endif %}
+                </button>
+
+                <p
+                    id="mensagem-detalhes"
+                    class="mensagem-detalhes"
+                    role="status"
+                    aria-live="polite"
+                ></p>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- JAVASCRIPT -->
+    <script src="{{ url_for('static', filename='js/detalhes.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,91 @@
+
+# ==========================================
+# BEBIDAMIX - GITIGNORE
+# ==========================================
+
+# Ambiente virtual do Python
+.venv/
+venv/
+env/
+
+# ==========================================
+# CREDENCIAIS E CONFIGURACOES PRIVADAS
+# ==========================================
+
+.env
+.env.*
+!.env.example
+
+# Arquivos com chaves privadas
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Arquivos de credenciais
+secrets.json
+credentials.json
+
+# ==========================================
+# ARQUIVOS TEMPORARIOS DO PYTHON
+# ==========================================
+
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ==========================================
+# SESSOES DO FLASK
+# ==========================================
+
+.flask_sessions/
+flask_session/
+flask_session_files/
+
+# ==========================================
+# ARQUIVOS LOCAIS E BANCOS TEMPORARIOS
+# ==========================================
+
+instance/
+*.sqlite
+*.sqlite3
+*.db
+
+# ==========================================
+# LOGS E ARQUIVOS TEMPORARIOS
+# ==========================================
+
+*.log
+logs/
+*.tmp
+*.bak
+*.swp
+*~
+
+# ==========================================
+# CONFIGURACOES DOS EDITORES
+# ==========================================
+
+.vscode/
+.idea/
+
+# ==========================================
+# ARQUIVOS DO SISTEMA OPERACIONAL
+# ==========================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# IMAGENS ENVIADAS PELO SISTEMA
+# ==========================================
+
+# Ignorar imagens cadastradas localmente
+static/uploads/*
+
+# Manter a estrutura da pasta no GitHub
+!static/uploads/.gitkeep
