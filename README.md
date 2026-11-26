@@ -81,25 +81,8 @@ A demonstração em vídeo é a principal evidência prática do funcionamento d
 
 A gravação apresenta o sistema em execução e comprova a integração entre as três tecnologias de banco de dados utilizadas.
 
-**📹 Duração obrigatória:** de 5 a 10 minutos.
+https://github.com/user-attachments/assets/0474e1f5-0726-47a8-96bb-b46ed090acd9
 
-**▶️ Vídeo:** Aguardando publicação.
-
-> O link da gravação será adicionado nesta seção após a publicação do vídeo.
-
-### 📋 Roteiro da Apresentação
-
-O roteiro prioriza as operações de banco de dados e suas consequências no sistema.
-
-| Tempo | Demonstração | Objetivo |
-|-------|--------------|----------|
-| 0:00 – 0:40 | Apresentação do BebidaMix | Explicar a proposta do projeto |
-| 0:40 – 2:00 | Catálogo e carrinho | Demonstrar o sistema funcionando |
-| 2:00 – 3:30 | MongoDB Atlas | Demonstrar cadastro e alteração de produtos |
-| 3:30 – 5:00 | Supabase / PostgreSQL | Demonstrar autenticação e permissões |
-| 5:00 – 6:30 | Redis | Demonstrar o cache de produtos visualizados |
-| 6:30 – 8:00 | Pedidos e MongoDB | Demonstrar o registro de um pedido |
-| 8:00 – 8:30 | Considerações finais | Resumir a integração poliglota |
 
 ### O que será demonstrado?
 
