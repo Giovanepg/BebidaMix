@@ -1,26 +1,20 @@
 
+import os
+import warnings
+
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
-import warnings
 
 from bson import ObjectId
 from bson.errors import InvalidId
 
 from flask import (
-    Blueprint,
-    abort,
-    current_app,
-    flash,
-    g,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for
+    Blueprint, abort, current_app, flash, g,
+    redirect, render_template, request, session, url_for
 )
 
 from flask_wtf.csrf import generate_csrf, validate_csrf
@@ -32,6 +26,7 @@ from wtforms.validators import ValidationError
 
 from database.mongodb import produtos
 from database.supabase_db import conectar_supabase
+from database.supabase_storage import conectar_storage
 
 
 # ==========================================
@@ -58,20 +53,15 @@ EXTENSOES = {
     "WEBP": ".webp"
 }
 
-# Coleção de pedidos no mesmo banco dos produtos
 pedidos = produtos.database["pedidos"]
 
-
-# ==========================================
-# EXCEÇÃO PARA ERROS DE PEDIDOS
-# ==========================================
 
 class ErroPedido(Exception):
     pass
 
 
 # ==========================================
-# SALVAR IMAGEM DO PRODUTO
+# SALVAR IMAGEM NO SUPABASE STORAGE
 # ==========================================
 
 def salvar_imagem(arquivo):
@@ -82,21 +72,17 @@ def salvar_imagem(arquivo):
     conteudo = arquivo.read(LIMITE_IMAGEM + 1)
 
     if not conteudo or len(conteudo) > LIMITE_IMAGEM:
-        raise ValueError(
-            "A imagem deve ter até 5 MB."
-        )
+        raise ValueError("A imagem deve ter até 5 MB.")
 
-    # Verificar o conteúdo real da imagem
+    # Validar conteúdo real da imagem
     try:
         with warnings.catch_warnings():
-
             warnings.simplefilter(
                 "error",
                 Image.DecompressionBombWarning
             )
 
             with Image.open(BytesIO(conteudo)) as imagem:
-
                 formato = imagem.format
                 imagem.verify()
 
@@ -116,30 +102,44 @@ def salvar_imagem(arquivo):
             "Escolha uma imagem JPG, PNG ou WebP."
         )
 
-    # Pasta de imagens
-    pasta = Path(current_app.static_folder) / "uploads"
-
-    pasta.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+    tipos_mime = {
+        "JPEG": "image/jpeg",
+        "PNG": "image/png",
+        "WEBP": "image/webp"
+    }
 
     # Gerar nome único
     nome = uuid4().hex + EXTENSOES[formato]
+    caminho_storage = f"uploads/{nome}"
 
-    caminho = pasta / nome
+    try:
+        storage = conectar_storage().storage.from_("produtos")
 
-    # Salvar a imagem no servidor
-    caminho.write_bytes(conteudo)
+        # Enviar imagem ao Supabase Storage
+        storage.upload(
+            path=caminho_storage,
+            file=conteudo,
+            file_options={
+                "content-type": tipos_mime[formato],
+                "upsert": "false"
+            }
+        )
 
-    return url_for(
-        "static",
-        filename=f"uploads/{nome}"
-    )
+        # Retornar URL pública para o MongoDB
+        return storage.get_public_url(caminho_storage)
+
+    except Exception:
+        current_app.logger.exception(
+            "Falha no upload da imagem ao Supabase"
+        )
+
+        raise OSError(
+            "Não foi possível salvar a imagem no Storage."
+        ) from None
 
 
 # ==========================================
-# LIMPAR IMAGEM NOVA EM CASO DE ERRO
+# DESCARTAR IMAGEM NOVA EM CASO DE ERRO
 # ==========================================
 
 def descartar_nova_imagem(caminho):
@@ -147,22 +147,46 @@ def descartar_nova_imagem(caminho):
     if not caminho:
         return
 
-    if not caminho.startswith("/static/uploads/"):
+    projeto = os.getenv("SUPABASE_URL", "").rstrip("/")
+
+    if not projeto:
         return
 
-    arquivo = (
-        Path(current_app.static_folder)
-        / "uploads"
-        / Path(caminho).name
+    prefixo = (
+        f"{projeto}/storage/v1/object/public/"
+        "produtos/uploads/"
     )
 
-    try:
-        arquivo.unlink(missing_ok=True)
+    if not caminho.startswith(prefixo):
+        return
 
-    except OSError:
+    nome = caminho[len(prefixo):]
+    arquivo = Path(nome)
+
+    if (
+        not nome
+        or "/" in nome
+        or "?" in nome
+        or "#" in nome
+        or arquivo.suffix.lower() not in EXTENSOES.values()
+        or len(arquivo.stem) != 32
+    ):
+        return
+
+    try:
+        int(arquivo.stem, 16)
+    except ValueError:
+        return
+
+    try:
+        conectar_storage().storage.from_("produtos").remove(
+            [f"uploads/{nome}"]
+        )
+
+    except Exception:
         current_app.logger.warning(
-            "Não foi possível remover imagem: %s",
-            arquivo
+            "Não foi possível descartar a imagem do Storage",
+            exc_info=True
         )
 
 
@@ -173,10 +197,7 @@ def descartar_nova_imagem(caminho):
 def validar_preco_estoque(preco_texto, estoque_texto):
 
     try:
-        preco = Decimal(
-            preco_texto.replace(",", ".")
-        )
-
+        preco = Decimal(preco_texto.replace(",", "."))
         estoque = int(estoque_texto)
 
     except (InvalidOperation, ValueError, TypeError):
@@ -237,14 +258,11 @@ def administrador_obrigatorio(funcao):
         refresh = session.get("refresh_token")
 
         if not access or not refresh:
-            return redirect(
-                url_for("admin.login")
-            )
+            return redirect(url_for("admin.login"))
 
         try:
             supabase = conectar_supabase()
 
-            # Restaurar a sessão
             resposta = supabase.auth.set_session(
                 access,
                 refresh
@@ -268,14 +286,10 @@ def administrador_obrigatorio(funcao):
                 or not resultado.data[0]["ativo"]
             ):
                 session.clear()
-
-                return redirect(
-                    url_for("admin.login")
-                )
+                return redirect(url_for("admin.login"))
 
             administrador = resultado.data[0]
 
-            # Atualizar tokens da sessão
             session["access_token"] = (
                 resposta.session.access_token
             )
@@ -287,14 +301,9 @@ def administrador_obrigatorio(funcao):
             g.nome_admin = administrador["nome"]
 
         except Exception:
-
             session.clear()
-
             flash("Sessão expirada ou indisponível.")
-
-            return redirect(
-                url_for("admin.login")
-            )
+            return redirect(url_for("admin.login"))
 
         return funcao(*args, **kwargs)
 
@@ -305,10 +314,7 @@ def administrador_obrigatorio(funcao):
 # LOGIN ADMINISTRATIVO
 # ==========================================
 
-@admin_bp.route(
-    "/admin/login",
-    methods=["GET", "POST"]
-)
+@admin_bp.route("/admin/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
@@ -319,23 +325,15 @@ def login():
             )
 
         except ValidationError:
-
             flash("Formulário expirado. Tente novamente.")
-
-            return redirect(
-                url_for("admin.login")
-            )
+            return redirect(url_for("admin.login"))
 
         email = request.form.get("email", "").strip()
         senha = request.form.get("senha", "")
 
         if not email or not senha:
-
             flash("Preencha o email e a senha.")
-
-            return redirect(
-                url_for("admin.login")
-            )
+            return redirect(url_for("admin.login"))
 
         try:
             supabase = conectar_supabase()
@@ -348,12 +346,8 @@ def login():
             usuario = resposta.user
 
             if not usuario or not resposta.session:
-
                 flash("Não foi possível realizar o login.")
-
-                return redirect(
-                    url_for("admin.login")
-                )
+                return redirect(url_for("admin.login"))
 
             resultado = (
                 supabase.table("administradores")
@@ -366,14 +360,9 @@ def login():
                 not resultado.data
                 or not resultado.data[0]["ativo"]
             ):
-
                 flash("Acesso não autorizado.")
+                return redirect(url_for("admin.login"))
 
-                return redirect(
-                    url_for("admin.login")
-                )
-
-            # Criar sessão administrativa
             session.clear()
             session.permanent = True
 
@@ -385,12 +374,9 @@ def login():
                 resposta.session.refresh_token
             )
 
-            return redirect(
-                url_for("admin.painel")
-            )
+            return redirect(url_for("admin.painel"))
 
         except Exception:
-
             current_app.logger.exception(
                 "Falha no login administrativo"
             )
@@ -425,25 +411,18 @@ def painel():
 # LOGOUT
 # ==========================================
 
-@admin_bp.route(
-    "/admin/logout",
-    methods=["POST"]
-)
+@admin_bp.route("/admin/logout", methods=["POST"])
 def logout():
 
     try:
-        validate_csrf(
-            request.form.get("csrf_token")
-        )
+        validate_csrf(request.form.get("csrf_token"))
 
     except ValidationError:
         return "Solicitação inválida.", 400
 
     session.clear()
 
-    return redirect(
-        url_for("admin.login")
-    )
+    return redirect(url_for("admin.login"))
 
 
 # ==========================================
@@ -460,55 +439,31 @@ def cadastrar_produto():
     if request.method == "POST":
 
         try:
-            validate_csrf(
-                request.form.get("csrf_token")
-            )
+            validate_csrf(request.form.get("csrf_token"))
 
         except ValidationError:
-
             flash("Formulário inválido. Tente novamente.")
-
-            return redirect(
-                url_for("admin.cadastrar_produto")
-            )
+            return redirect(url_for("admin.cadastrar_produto"))
 
         nome = request.form.get("nome", "").strip()
-
-        descricao = request.form.get(
-            "descricao", ""
-        ).strip()
-
+        descricao = request.form.get("descricao", "").strip()
         categoria = request.form.get("categoria", "")
-
-        preco_texto = request.form.get(
-            "preco", ""
-        ).strip()
-
-        estoque_texto = request.form.get(
-            "estoque", ""
-        ).strip()
-
+        preco_texto = request.form.get("preco", "").strip()
+        estoque_texto = request.form.get("estoque", "").strip()
         ativo = request.form.get("ativo") == "on"
 
         arquivo_imagem = request.files.get("imagem")
-
         nova_imagem = None
 
         try:
-            validar_campos(
-                nome,
-                descricao,
-                categoria
-            )
+            validar_campos(nome, descricao, categoria)
 
             preco, estoque = validar_preco_estoque(
                 preco_texto,
                 estoque_texto
             )
 
-            nova_imagem = salvar_imagem(
-                arquivo_imagem
-            )
+            nova_imagem = salvar_imagem(arquivo_imagem)
 
             novo_produto = {
                 "nome": nome,
@@ -524,22 +479,16 @@ def cadastrar_produto():
 
             flash("Produto cadastrado com sucesso!")
 
-            return redirect(
-                url_for("admin.painel")
-            )
+            return redirect(url_for("admin.painel"))
 
         except ValueError as erro:
             flash(str(erro))
 
         except (OSError, PyMongoError):
-
             current_app.logger.exception(
                 "Falha ao cadastrar produto"
             )
-
-            flash(
-                "Não foi possível salvar o produto."
-            )
+            flash("Não foi possível salvar o produto.")
 
         descartar_nova_imagem(nova_imagem)
 
@@ -559,14 +508,10 @@ def cadastrar_produto():
 def listar_produtos():
 
     try:
-        lista = list(
-            produtos.find().sort("nome", 1)
-        )
+        lista = list(produtos.find().sort("nome", 1))
 
         for produto in lista:
-            produto["id"] = str(
-                produto["_id"]
-            )
+            produto["id"] = str(produto["_id"])
 
         return render_template(
             "gerenciar_produtos.html",
@@ -575,16 +520,13 @@ def listar_produtos():
         )
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao listar produtos"
         )
 
         flash("Não foi possível carregar os produtos.")
 
-        return redirect(
-            url_for("admin.painel")
-        )
+        return redirect(url_for("admin.painel"))
 
 
 # ==========================================
@@ -610,11 +552,9 @@ def editar_produto(id_produto):
         })
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao consultar produto"
         )
-
         abort(503)
 
     if produto is None:
@@ -623,12 +563,9 @@ def editar_produto(id_produto):
     if request.method == "POST":
 
         try:
-            validate_csrf(
-                request.form.get("csrf_token")
-            )
+            validate_csrf(request.form.get("csrf_token"))
 
         except ValidationError:
-
             flash("Formulário inválido ou expirado.")
 
             return redirect(
@@ -639,33 +576,17 @@ def editar_produto(id_produto):
             )
 
         nome = request.form.get("nome", "").strip()
-
-        descricao = request.form.get(
-            "descricao", ""
-        ).strip()
-
+        descricao = request.form.get("descricao", "").strip()
         categoria = request.form.get("categoria", "")
-
-        preco_texto = request.form.get(
-            "preco", ""
-        ).strip()
-
-        estoque_texto = request.form.get(
-            "estoque", ""
-        ).strip()
-
+        preco_texto = request.form.get("preco", "").strip()
+        estoque_texto = request.form.get("estoque", "").strip()
         ativo = request.form.get("ativo") == "on"
 
         arquivo_imagem = request.files.get("imagem")
-
         nova_imagem = None
 
         try:
-            validar_campos(
-                nome,
-                descricao,
-                categoria
-            )
+            validar_campos(nome, descricao, categoria)
 
             preco, estoque = validar_preco_estoque(
                 preco_texto,
@@ -675,10 +596,8 @@ def editar_produto(id_produto):
             # Manter imagem existente
             imagem = produto.get("imagem", "")
 
-            # Salvar nova imagem, caso enviada
-            nova_imagem = salvar_imagem(
-                arquivo_imagem
-            )
+            # Enviar nova imagem, caso selecionada
+            nova_imagem = salvar_imagem(arquivo_imagem)
 
             if nova_imagem is not None:
                 imagem = nova_imagem
@@ -699,37 +618,26 @@ def editar_produto(id_produto):
             )
 
             if resultado.matched_count == 0:
-                raise ValueError(
-                    "Produto não encontrado."
-                )
+                raise ValueError("Produto não encontrado.")
 
             flash("Produto atualizado com sucesso!")
 
-            return redirect(
-                url_for("admin.listar_produtos")
-            )
+            return redirect(url_for("admin.listar_produtos"))
 
         except ValueError as erro:
             flash(str(erro))
 
         except (OSError, PyMongoError):
-
             current_app.logger.exception(
                 "Erro ao atualizar produto"
             )
-
-            flash(
-                "Não foi possível atualizar o produto."
-            )
+            flash("Não foi possível atualizar o produto.")
 
         descartar_nova_imagem(nova_imagem)
 
-    # Preparar dados do formulário
     produto["id"] = str(produto["_id"])
 
-    preco_atual = Decimal(
-        str(produto["preco"])
-    )
+    preco_atual = Decimal(str(produto["preco"]))
 
     return render_template(
         "editar_produto.html",
@@ -752,17 +660,11 @@ def editar_produto(id_produto):
 def excluir_produto(id_produto):
 
     try:
-        validate_csrf(
-            request.form.get("csrf_token")
-        )
+        validate_csrf(request.form.get("csrf_token"))
 
     except ValidationError:
-
         flash("Solicitação inválida ou expirada.")
-
-        return redirect(
-            url_for("admin.listar_produtos")
-        )
+        return redirect(url_for("admin.listar_produtos"))
 
     try:
         object_id = ObjectId(id_produto)
@@ -777,21 +679,16 @@ def excluir_produto(id_produto):
 
         if resultado.deleted_count == 0:
             flash("Produto não encontrado.")
-
         else:
             flash("Produto excluído com sucesso!")
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao excluir produto"
         )
-
         flash("Não foi possível excluir o produto.")
 
-    return redirect(
-        url_for("admin.listar_produtos")
-    )
+    return redirect(url_for("admin.listar_produtos"))
 
 
 # ==========================================
@@ -803,9 +700,7 @@ def excluir_produto(id_produto):
 def controle_estoque():
 
     try:
-        lista = list(
-            produtos.find().sort("nome", 1)
-        )
+        lista = list(produtos.find().sort("nome", 1))
 
         total_produtos = len(lista)
         total_unidades = 0
@@ -815,9 +710,7 @@ def controle_estoque():
 
         for produto in lista:
 
-            produto["id"] = str(
-                produto["_id"]
-            )
+            produto["id"] = str(produto["_id"])
 
             quantidade = produto.get("estoque", 0)
             ativo = produto.get("ativo", False)
@@ -826,22 +719,18 @@ def controle_estoque():
                 total_unidades += quantidade
 
             if not ativo:
-
                 produto["situacao_estoque"] = "Inativo"
                 inativos += 1
 
             elif quantidade <= 0:
-
                 produto["situacao_estoque"] = "Esgotado"
                 esgotados += 1
 
             elif quantidade <= 5:
-
                 produto["situacao_estoque"] = "Estoque baixo"
                 estoque_baixo += 1
 
             else:
-
                 produto["situacao_estoque"] = "Normal"
 
         return render_template(
@@ -855,16 +744,13 @@ def controle_estoque():
         )
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao consultar estoque"
         )
 
         flash("Não foi possível carregar o estoque.")
 
-        return redirect(
-            url_for("admin.painel")
-        )
+        return redirect(url_for("admin.painel"))
 
 
 # ==========================================
@@ -884,19 +770,14 @@ def listar_pedidos():
 
         for pedido in lista:
 
-            pedido["id"] = str(
-                pedido["_id"]
-            )
+            pedido["id"] = str(pedido["_id"])
 
             data = pedido.get("criado_em")
 
             if data:
-
                 pedido["data_formatada"] = (
-                    data.strftime("%d/%m/%Y %H:%M")
-                    + " UTC"
+                    data.strftime("%d/%m/%Y %H:%M") + " UTC"
                 )
-
             else:
                 pedido["data_formatada"] = "-"
 
@@ -907,16 +788,13 @@ def listar_pedidos():
         )
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao consultar pedidos"
         )
 
         flash("Não foi possível carregar os pedidos.")
 
-        return redirect(
-            url_for("admin.painel")
-        )
+        return redirect(url_for("admin.painel"))
 
 
 # ==========================================
@@ -930,37 +808,24 @@ def listar_pedidos():
 @administrador_obrigatorio
 def confirmar_pedido(id_pedido):
 
-    # Validar CSRF
     try:
-        validate_csrf(
-            request.form.get("csrf_token")
-        )
+        validate_csrf(request.form.get("csrf_token"))
 
     except ValidationError:
-
         flash("Formulário inválido ou expirado.")
+        return redirect(url_for("admin.listar_pedidos"))
 
-        return redirect(
-            url_for("admin.listar_pedidos")
-        )
-
-    # Validar ID do pedido
     try:
         object_id = ObjectId(id_pedido)
 
     except (InvalidId, TypeError):
         abort(404)
 
-    # Cliente MongoDB já conectado
     client = produtos.database.client
 
-    # ======================================
-    # OPERAÇÕES DA TRANSAÇÃO
-    # ======================================
-
+    # Executar operações dentro de uma transação
     def executar_confirmacao(sessao):
 
-        # Atualizar somente pedido pendente
         resultado = pedidos.update_one(
             {
                 "_id": object_id,
@@ -969,22 +834,17 @@ def confirmar_pedido(id_pedido):
             {
                 "$set": {
                     "status": "CONFIRMADO",
-                    "confirmado_em": datetime.now(
-                        timezone.utc
-                    )
+                    "confirmado_em": datetime.now(timezone.utc)
                 }
             },
             session=sessao
         )
 
-        # Impedir confirmação duplicada
         if resultado.modified_count != 1:
-
             raise ErroPedido(
                 "Pedido não encontrado ou já finalizado."
             )
 
-        # Recuperar pedido na mesma transação
         pedido = pedidos.find_one(
             {
                 "_id": object_id,
@@ -994,21 +854,15 @@ def confirmar_pedido(id_pedido):
         )
 
         if not pedido or not pedido.get("itens"):
+            raise ErroPedido("Pedido sem itens válidos.")
 
-            raise ErroPedido(
-                "Pedido sem itens válidos."
-            )
-
-        # Validar os itens antes de descontar
         ids_produtos = set()
 
+        # Validar os itens do pedido
         for item in pedido["itens"]:
 
             if not isinstance(item, dict):
-
-                raise ErroPedido(
-                    "Item inválido no pedido."
-                )
+                raise ErroPedido("Item inválido no pedido.")
 
             produto_id = item.get("produto_id")
             quantidade = item.get("quantidade")
@@ -1018,21 +872,14 @@ def confirmar_pedido(id_pedido):
                 or type(quantidade) is not int
                 or quantidade <= 0
             ):
+                raise ErroPedido("Dados inválidos no pedido.")
 
-                raise ErroPedido(
-                    "Dados inválidos no pedido."
-                )
-
-            # Evitar produto repetido no pedido
             if produto_id in ids_produtos:
-
-                raise ErroPedido(
-                    "Produto duplicado no pedido."
-                )
+                raise ErroPedido("Produto duplicado no pedido.")
 
             ids_produtos.add(produto_id)
 
-        # Descontar as quantidades
+        # Descontar estoque
         for item in pedido["itens"]:
 
             produto_id = item["produto_id"]
@@ -1042,32 +889,21 @@ def confirmar_pedido(id_pedido):
                 {
                     "_id": produto_id,
                     "ativo": True,
-                    "estoque": {
-                        "$gte": quantidade
-                    }
+                    "estoque": {"$gte": quantidade}
                 },
                 {
-                    "$inc": {
-                        "estoque": -quantidade
-                    }
+                    "$inc": {"estoque": -quantidade}
                 },
                 session=sessao
             )
 
-            # Se faltar estoque, abortar transação
             if resultado_estoque.modified_count != 1:
-
                 raise ErroPedido(
-                    "Produto indisponível ou estoque "
-                    "insuficiente: "
+                    "Produto indisponível ou estoque insuficiente: "
                     + str(item.get("nome", "Produto"))
                 )
 
         return True
-
-    # ======================================
-    # EXECUTAR A TRANSAÇÃO
-    # ======================================
 
     try:
         with client.start_session() as sessao:
@@ -1078,16 +914,12 @@ def confirmar_pedido(id_pedido):
                 write_concern=WriteConcern("majority")
             )
 
-        flash(
-            "Pedido confirmado e estoque atualizado!"
-        )
+        flash("Pedido confirmado e estoque atualizado!")
 
     except ErroPedido as erro:
-
         flash(str(erro))
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao confirmar pedido"
         )
@@ -1097,9 +929,7 @@ def confirmar_pedido(id_pedido):
             "Confira a situação antes de tentar novamente."
         )
 
-    return redirect(
-        url_for("admin.listar_pedidos")
-    )
+    return redirect(url_for("admin.listar_pedidos"))
 
 
 # ==========================================
@@ -1113,21 +943,13 @@ def confirmar_pedido(id_pedido):
 @administrador_obrigatorio
 def cancelar_pedido(id_pedido):
 
-    # Validar CSRF
     try:
-        validate_csrf(
-            request.form.get("csrf_token")
-        )
+        validate_csrf(request.form.get("csrf_token"))
 
     except ValidationError:
-
         flash("Formulário inválido ou expirado.")
+        return redirect(url_for("admin.listar_pedidos"))
 
-        return redirect(
-            url_for("admin.listar_pedidos")
-        )
-
-    # Validar ID
     try:
         object_id = ObjectId(id_pedido)
 
@@ -1135,7 +957,6 @@ def cancelar_pedido(id_pedido):
         abort(404)
 
     try:
-        # Cancelar somente pedidos pendentes
         resultado = pedidos.update_one(
             {
                 "_id": object_id,
@@ -1144,37 +965,24 @@ def cancelar_pedido(id_pedido):
             {
                 "$set": {
                     "status": "CANCELADO",
-                    "cancelado_em": datetime.now(
-                        timezone.utc
-                    )
+                    "cancelado_em": datetime.now(timezone.utc)
                 }
             }
         )
 
         if resultado.modified_count == 1:
-
             flash("Pedido cancelado com sucesso!")
-
         else:
-
-            flash(
-                "Pedido não encontrado ou já finalizado."
-            )
+            flash("Pedido não encontrado ou já finalizado.")
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao cancelar pedido"
         )
 
-        flash(
-            "Não foi possível cancelar o pedido."
-        )
+        flash("Não foi possível cancelar o pedido.")
 
-    return redirect(
-        url_for("admin.listar_pedidos")
-    )
-
+    return redirect(url_for("admin.listar_pedidos"))
 
 
 # ==========================================
@@ -1186,7 +994,7 @@ def cancelar_pedido(id_pedido):
 def dashboard_vendas():
 
     try:
-        # 1. Resumo dos pedidos por situação
+        # Resumo dos pedidos por status
         resumo = list(
             pedidos.aggregate([
                 {
@@ -1207,7 +1015,6 @@ def dashboard_vendas():
             ])
         )
 
-        # Contadores iniciais
         vendas_confirmadas = 0
         pedidos_pendentes = 0
         pedidos_cancelados = 0
@@ -1228,13 +1035,11 @@ def dashboard_vendas():
             elif status == "CANCELADO":
                 pedidos_cancelados = quantidade
 
-        # 2. Produtos mais vendidos
+        # Produtos mais vendidos
         mais_vendidos = list(
             pedidos.aggregate([
                 {
-                    "$match": {
-                        "status": "CONFIRMADO"
-                    }
+                    "$match": {"status": "CONFIRMADO"}
                 },
                 {
                     "$unwind": "$itens"
@@ -1263,7 +1068,7 @@ def dashboard_vendas():
             ])
         )
 
-        # 3. Últimos cinco pedidos
+        # Últimos cinco pedidos
         ultimos_pedidos = list(
             pedidos.find()
             .sort("criado_em", -1)
@@ -1273,13 +1078,11 @@ def dashboard_vendas():
         for pedido in ultimos_pedidos:
 
             pedido["id"] = str(pedido["_id"])
-
             data = pedido.get("criado_em")
 
             if data:
                 pedido["data_formatada"] = (
-                    data.strftime("%d/%m/%Y %H:%M")
-                    + " UTC"
+                    data.strftime("%d/%m/%Y %H:%M") + " UTC"
                 )
             else:
                 pedido["data_formatada"] = "-"
@@ -1303,13 +1106,10 @@ def dashboard_vendas():
         )
 
     except PyMongoError:
-
         current_app.logger.exception(
             "Erro ao carregar dashboard de vendas"
         )
 
         flash("Não foi possível carregar o dashboard.")
 
-        return redirect(
-            url_for("admin.painel")
-        )
+        return redirect(url_for("admin.painel"))
