@@ -1,0 +1,10 @@
+
+Flask
+Flask-Session
+Flask-WTF
+cachelib
+gunicorn
+pymongo
+python-dotenv
+redis
+supabase
